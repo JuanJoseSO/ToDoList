@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 
-class DatabaseHelper (context: Context) :
+class DatabaseHelper(context: Context) :
 
     SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
     companion object {
@@ -31,23 +31,21 @@ class DatabaseHelper (context: Context) :
             $IS_CROSSED INTEGER DEFAULT 0
             )
         """.trimIndent()
-
         db?.execSQL(createTable)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase?, p1: Int, p2: Int) {
-    }
+    override fun onUpgrade(db: SQLiteDatabase?, p1: Int, p2: Int) {}
 
-    fun insertTask(task: Task){
-        val db= writableDatabase
+    fun insertTask(task: Task) {
+        val db = writableDatabase
 
-       val insert = ContentValues().apply {
-            put(NAME_TASK,task.name)
-            put(TYPE_TASK,task.category)
-            put(IS_CROSSED,task.isSelected)
-       }
+        val insert = ContentValues().apply {
+            put(NAME_TASK, task.name)
+            put(TYPE_TASK, task.category)
+            put(IS_CROSSED, task.isSelected)
+        }
         try {
-           db.insert(TABLE_TASK, null, insert)
+            db.insert(TABLE_TASK, null, insert)
         } catch (e: SQLiteException) {
             Log.e("SQLite", "Error al añadir tareas", e)
         }
@@ -63,7 +61,7 @@ class DatabaseHelper (context: Context) :
                 val name = getString(getColumnIndexOrThrow(NAME_TASK))
                 val category = getInt(getColumnIndexOrThrow(TYPE_TASK))
                 val isSelected = getInt(getColumnIndexOrThrow(IS_CROSSED)) > 0
-                tasks.add(Task(id,name, category, isSelected))
+                tasks.add(Task(id, name, category, isSelected))
             }
         }
         cursor.close()
@@ -77,18 +75,22 @@ class DatabaseHelper (context: Context) :
             put(TYPE_TASK, task.category)
             put(IS_CROSSED, if (task.isSelected) 1 else 0)
         }
-        db.update(TABLE_TASK, values, "$ID_TASK = ?", arrayOf(task.id.toString()))
+        try {
+            db.update(TABLE_TASK, values, "$ID_TASK = ?", arrayOf(task.id.toString()))
+        } catch (e: SQLiteException) {
+            Log.e("SQLite", "Error al añadir tareas", e)
+        }
     }
 
-    fun deleteTasks() {
-        val db= writableDatabase
-        db.delete(TABLE_TASK,null,null)
+    /*fun deleteTasks() {
+        val db = writableDatabase
+        db.delete(TABLE_TASK, null, null)
         db.close()
-    }
+    }*/
 
-    fun deleteTask(id: Int){
-        val db= writableDatabase
-        db.delete(TABLE_TASK,"$ID_TASK=?", arrayOf(id.toString()))
+    fun deleteTask(id: Int) {
+        val db = writableDatabase
+        db.delete(TABLE_TASK, "$ID_TASK=?", arrayOf(id.toString()))
         db.close()
     }
 
