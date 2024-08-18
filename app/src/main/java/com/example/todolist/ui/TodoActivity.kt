@@ -1,5 +1,6 @@
 package com.example.todolist.ui
 
+import android.annotation.SuppressLint
 import android.app.Dialog
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -7,6 +8,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.todolist.R
@@ -22,7 +24,7 @@ class TodoActivity : AppCompatActivity() {
     )
 
     //Lista tareas
-    private val tasks = mutableListOf<Task>()
+    private var tasks = mutableListOf<Task>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,13 +33,34 @@ class TodoActivity : AppCompatActivity() {
         initUI()                //Configura la interfaz de usuario
         initListeners()         //Configura los listeners de eventos
         loadTasksFromDatabase() //Carga las tareas desde la base de datos
+        deleteTasks()       //Eliminar tareas al deslizar
+    }
+
+    private fun deleteTasks() {
+        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                return false // No necesitas mover elementos, solo eliminarlos
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.bindingAdapterPosition
+                tasksAdapter.deleteTasks(position)
+            }
+        })
+
+// Adjunta el `ItemTouchHelper` al `RecyclerView`
+        itemTouchHelper.attachToRecyclerView(rvTasks)
     }
 
     private fun initListeners() {
         fabAddTask.setOnClickListener { showDialog() } //Dialog para crear una nueva tarea
     }
 
-    private fun loadTasksFromDatabase() {
+    fun   loadTasksFromDatabase() {
         val db = DatabaseHelper(this)
         tasks.clear()                           //Limpia la lista actual
         tasks.addAll(db.getAllTasks())          //Añade las tareas obtenidas de la base de datos
@@ -48,8 +71,8 @@ class TodoActivity : AppCompatActivity() {
     //Método para obtener la categoría de tarea mediante el texto del botón seleccionado
     fun getTaskCategoryFromText(text: String): TaskCategory {
         return when (text) {
-            getString(R.string.todo_dialog_category_buying) -> Importante
-            getString(R.string.todo_dialog_category_important) -> Compra
+            getString(R.string.todo_dialog_category_important)  -> Importante
+            getString(R.string.todo_dialog_category_buying) -> Compra
             getString(R.string.todo_dialog_category_other) -> Other
             else -> throw IllegalArgumentException("Unknown category: $text")
         }
@@ -100,7 +123,7 @@ class TodoActivity : AppCompatActivity() {
         rvCategories.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         rvCategories.adapter = categoriesAdapter
 
-        tasksAdapter = TasksAdapter(tasks) {position -> onItemSelected(position)}
+        tasksAdapter = TasksAdapter(this,tasks) {position -> onItemSelected(position)}
         rvTasks.layoutManager = LinearLayoutManager(this)
         rvTasks.adapter = tasksAdapter
     }
@@ -112,6 +135,7 @@ class TodoActivity : AppCompatActivity() {
         val db = DatabaseHelper(this)
         db.updateTask(task)  // Actualiza la tarea en la base de datos
         updateTasks()
+        loadTasksFromDatabase()
     }
 
     //Filtra las tareas por las categorías seleccionadas y actualiza la lista mostrada
@@ -121,29 +145,21 @@ class TodoActivity : AppCompatActivity() {
         updateTasks()
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private fun updateTasks(){
-        //Limpia la lista de tareas
         tasks.clear()
-
-        //Carga todas las tareas desde la base de datos y las añade a la lista de tareas
         tasks.addAll(DatabaseHelper(this).getAllTasks())
 
-        //Filtra las categorías seleccionadas (aquellas cuyo atributo isSelected es true)
         val selectedCategoryValues = categories.filter { it.isSelected }
             .map { it.value }
 
-        // Verifica si hay categorías seleccionadas
-        if (selectedCategoryValues.isEmpty()) {
-            // Si no hay categorías seleccionadas, no muestra ninguna tarea
-            tasksAdapter.tasks = emptyList()
+        tasksAdapter.tasks = if (selectedCategoryValues.isEmpty()) {
+            mutableListOf() // Lista mutable vacía
         } else {
-            // Si hay categorías seleccionadas, filtra las tareas por estas categorías
-            val newTasks = tasks.filter { task -> selectedCategoryValues.contains(task.category) }
-            tasksAdapter.tasks = newTasks
+            tasks.filter { task -> selectedCategoryValues.contains(task.category) }.toMutableList() // Lista mutable filtrada
         }
         tasksAdapter.notifyDataSetChanged()
     }
-
 
 
     private lateinit var rvCategories: RecyclerView
